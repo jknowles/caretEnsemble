@@ -27,13 +27,13 @@ env:
 #    gridExtra,
 install:
   - ./run.sh install_aptget r-cran-car r-cran-reshape2 r-cran-foreach r-cran-plyr
-  - ./run.sh install_aptget r-cran-nlme r-cran-e1071 r-cran-earth
-  - ./run.sh install_aptget r-cran-fastICA r-cran-gam r-cran-ipred r-cran-kernlab
-  - ./run.sh install_aptget r-cran-klaR r-cran-MASS r-cran-ellipse r-cran-mda
+  - ./run.sh install_aptget r-cran-nlme r-cran-e1071 r-cran-earth r-cran-caret
+  - ./run.sh install_aptget r-cran-gridExtra r-cran-ipred r-cran-kernlab
+  - ./run.sh install_aptget r-cran-klaR r-cran-MASS r-cran-mda
   - ./run.sh install_aptget r-cran-mgcv r-cran-mlbench r-cran-nnet r-cran-party
-  - ./run.sh install_aptget r-cran-pls r-cran-pROC r-cran-proxy r-cran-randomForest
-  - ./run.sh install_aptget r-cran-RANN r-cran-spls r-cran-subselect r-cran-pamr
-  - ./run.sh install_aptget r-cran-superpc r-cran-Cubist r-cran-testthat r-cran-rARPACK
+  - ./run.sh install_aptget r-cran-pls r-cran-pROC r-cran-randomForest
+  - ./run.sh install_aptget r-cran-spls r-cran-pamr
+  - ./run.sh install_aptget r-cran-superpc r-cran-Cubist r-cran-testthat
   - ./run.sh install_aptget r-cran-ggplot2 r-cran-reshape2 r-cran-data.table r-cran-glmnet
   - ./run.sh install_aptget r-cran-rpart r-cran-lattice r-cran-devtools r-cran-covr r-cran-lintr
 
