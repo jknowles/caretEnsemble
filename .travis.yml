@@ -27,7 +27,7 @@ env:
 #    gridExtra,
 install:
   - ./run.sh install_aptget r-cran-car r-cran-reshape2 r-cran-foreach r-cran-plyr
-  - ./run.sh install_aptget r-cran-nlme r-cran-BradleyTerry2 r-cran-e1071 r-cran-earth
+  - ./run.sh install_aptget r-cran-nlme r-cran-e1071 r-cran-earth
   - ./run.sh install_aptget r-cran-fastICA r-cran-gam r-cran-ipred r-cran-kernlab
   - ./run.sh install_aptget r-cran-klaR r-cran-MASS r-cran-ellipse r-cran-mda
   - ./run.sh install_aptget r-cran-mgcv r-cran-mlbench r-cran-nnet r-cran-party
