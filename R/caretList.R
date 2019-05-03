@@ -372,3 +372,6 @@ predict.caretList <- function(object, newdata = NULL, ..., verbose = FALSE){
 
   return(preds)
 }
+
+utils::globalVariables(c("type"))
+

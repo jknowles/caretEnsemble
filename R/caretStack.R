@@ -26,7 +26,7 @@ caretStack <- function(all.models, ...){
   predobs <- makePredObsMatrix(all.models)
 
   #Build a caret model
-  model <- train(predobs$preds, predobs$obs, ...)
+  model <- train(x = predobs$preds, y = predobs$obs, ...)
 
   #Return final model
   out <- list(models=all.models, ens_model=model, error=model$results)
@@ -51,6 +51,7 @@ caretStack <- function(all.models, ...){
 #' caret model. This is not available for all cases such as where the library
 #' model predictions are transformed before being passed to the stacking model.
 #' @method predict caretStack
+#' @importFrom stats na.omit
 #' @examples
 #' \dontrun{
 #' library("rpart")
@@ -63,12 +64,8 @@ caretStack <- function(all.models, ...){
 #' meta_model <- caretStack(models, method="lm")
 #' RMSE(predict(meta_model, iris[101:150,1:2]), iris[101:150,3])
 #' }
-predict.caretStack <- function(
-  object, newdata=NULL,
-  se=FALSE, level=0.95,
-  return_weights=FALSE,
-  na.action=na.omit,
-  ...){
+predict.caretStack <- function(object, newdata=NULL, se=FALSE, level=0.95,
+                               return_weights=FALSE,  na.action=na.omit, ...){
   stopifnot(is(object$models, "caretList"))
   type <- extractModelTypes(object$models)
 

@@ -48,8 +48,10 @@ test_that("caretStack plots", {
     models.reg, method="gbm", tuneLength=2, verbose=FALSE,
     trControl=trainControl(number=2, allowParallel=FALSE))
   png(filename = test_plot_file)
-  plot(ens.reg)
-  dotplot(ens.reg, metric="RMSE")
+  expect_known_output({
+    plot(ens.reg);
+    dotplot(ens.reg, metric="RMSE")},
+    test_plot_file)
   dev.off()
   unlink(test_plot_file)
 })
@@ -72,6 +74,7 @@ test_that("Failure to calculate se occurs gracefully", {
   ens.reg <- caretStack(
     models.reg, method="lm", preProcess="pca",
     trControl=trainControl(number=2, allowParallel=FALSE))
+
   expect_warning(pred <- predict(ens.reg, X.reg, se=TRUE))
   expect_warning(expect_is(predict(ens.reg, X.reg, se=TRUE), "data.frame"))
 
@@ -115,18 +118,18 @@ test_that("Failure to calculate se occurs gracefully", {
   )
 })
 
-rm(ens.reg); gc()
-
 test_that("Test na.action pass through", {
   set.seed(1337)
+  # TODO - I do not think you can subset a caretList and get valid stacking
   # drop the first model because it does not support na.pass
-  ens.reg <- caretStack(models.reg[2:3], method="lm")
-  # X_reg_na <- X.reg
+  ens_reg <- caretStack(models.reg[2:4], method="lm")
+  X_reg_na <- X.reg
   # # introduce random NA values into a column
-  # X_reg_na[sample(1:nrow(X_reg_na), 20), sample(1:ncol(X_reg_na)-1, 1)] <- NA
+  X_reg_na[sample(1:nrow(X_reg_na), 20), sample(1:ncol(X_reg_na)-1, 1)] <- NA
   #
-  # expect_warning({pred.reg <- predict(ens.reg, newdata = X_reg_na, na.action = na.pass)})
-  # expect_length(pred.reg, nrow(X_reg_na))
+  pred.reg <- predict(ens_reg, newdata = X_reg_na, na.action = na.pass)
+  expect_warning(predict(ens_reg, newdata = X_reg_na, na.action = na.pass))
+  expect_length(pred.reg, nrow(X_reg_na))
   #
   # expect_warning({pred.reg <- predict(ens.reg, newdata = X_reg_na)})
   # expect_false(length(pred.reg) !=  nrow(X_reg_na))
