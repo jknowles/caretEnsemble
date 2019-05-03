@@ -25,6 +25,7 @@ install:
   - ./run.sh install_aptget r-cran-pls r-cran-testthat r-cran-glmnet
   - ./run.sh install_aptget r-cran-ggplot2 r-cran-reshape2 r-cran-data.table
   - ./run.sh install_aptget r-cran-lattice r-cran-devtools r-cran-covr
+  - ./run.sh install_r lintr randomForest pROC knitr gbm klaR caTools rmarkdown
 
 script:
   - ./run.sh run_tests
