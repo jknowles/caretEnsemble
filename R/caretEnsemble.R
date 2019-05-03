@@ -218,7 +218,7 @@ varImpFrame <- function(x){
   dat$var[grep("Inter", dat$var)] <- "Intercept"
   dat$id <- NULL
   row.names(dat) <- NULL
-  dat <- reshape(dat, direction = "wide", v.names="Overall",
+  dat <- stats::reshape(dat, direction = "wide", v.names="Overall",
                  idvar = "var", timevar = "model")
   row.names(dat) <- dat[, 1]
   return(dat[, -1])
@@ -421,7 +421,7 @@ autoplot <- function(object, which = c(1:6), mfrow = c(3, 2),
   }
   # TODO: Insert checks for length of xvars here
   residOut <- multiResiduals(object)
-  zed <- ddply(residOut, .(id), summarize,
+  zed <- plyr::ddply(residOut, .(id), summarize,
                ymin = min(resid),
                ymax = max(resid),
                yavg = median(resid),

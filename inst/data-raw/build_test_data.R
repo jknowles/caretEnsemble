@@ -3,7 +3,7 @@ library(rpart)
 library(caret)
 library(plyr)
 library(e1071)
-
+set.seed(4354453)
 # Build test data
 data(iris)
 Y.reg <- iris[, 1]
@@ -13,13 +13,13 @@ Y.class <- factor(ifelse(iris$Sepal.Length <= 6.2, "No", "Yes"))
 
 # Reusable control
 myControl_reg <- trainControl(
-  method = "cv", number = 10, repeats = 1,
-  p = 0.75, savePrediction = TRUE,
+  method = "cv", number = 10,
+  p = 0.75, savePredictions = TRUE,
   classProbs = FALSE, returnResamp = "final",
   returnData = TRUE)
 myControl_class <- trainControl(
-  method = "cv", number = 10, repeats = 1,
-  p = 0.75, savePrediction = TRUE,
+  method = "cv", number = 10,
+  p = 0.75, savePredictions = TRUE,
   summaryFunction=twoClassSummary,
   classProbs = TRUE, returnResamp = "final",
   returnData = TRUE)
@@ -48,9 +48,9 @@ suppressWarnings({
 })
 
 # Save
-devtools::use_data(
+usethis::use_data(
   models.reg, models.class,
   Y.reg, Y.class,
   X.reg, X.class,
-  overwrite=TRUE
+  overwrite = TRUE
   )
