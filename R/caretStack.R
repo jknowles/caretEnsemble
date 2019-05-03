@@ -44,6 +44,7 @@ caretStack <- function(all.models, ...){
 #' @param level tolerance/confidence level
 #' @param return_weights a logical indicating whether prediction weights for each model
 #' should be returned
+#' @param na.action the method for handling missing data passed to \code{\link{predict.train}}.
 #' @param ... arguments to pass to \code{\link{predict.train}}.
 #' @export
 #' @details Prediction weights are defined as variable importance in the stacked
@@ -62,49 +63,73 @@ caretStack <- function(all.models, ...){
 #' meta_model <- caretStack(models, method="lm")
 #' RMSE(predict(meta_model, iris[101:150,1:2]), iris[101:150,3])
 #' }
-predict.caretStack <- function(object, newdata=NULL, se=FALSE, level=NULL,
-                               return_weights=FALSE, ...){
+predict.caretStack <- function(
+  object, newdata=NULL,
+  se=FALSE, level=0.95,
+  return_weights=FALSE,
+  na.action=na.omit,
+  ...){
   stopifnot(is(object$models, "caretList"))
   type <- extractModelTypes(object$models)
-  preds <- predict(object$models, newdata=newdata)
+
+  #preds <- do.call(predict, c(list(object=object$models, newdata=newdata), modelList_predict_params)) TODO keep this around for future use
+  preds <- predict(object$models, newdata=newdata, na.action=na.action)
   if(type == "Classification"){
-    out <- predict(object$ens_model, newdata=preds, ...)
+    out <- predict(object$ens_model, newdata=preds, na.action=na.action, ...)
     # Need a check here
     if(class(out) %in% c("data.frame", "matrix")){
-      est <- out[, 2, drop = TRUE] # return only the probabilities for the second class
+      # Return probability predictions for only one of the classes
+      # as determined by configured default response class level
+      est <- out[, getBinaryTargetLevel(), drop = TRUE]
     } else{
       est <- out
     }
   } else{
     est <- predict(object$ens_model, newdata=preds, ...)
   }
-  wghts <- varImp(object$ens_model)$importance$Overall
-  names(wghts) <- row.names(varImp(object$ens_model)$importance)
-  if(se == TRUE){
+
+  if(se | return_weights){
+    imp <- varImp(object$ens_model)$importance
+    weights <- imp$Overall
+    weights[!is.finite(weights)] <- 0
+    weights <- weights / sum(weights)
+
+    names(weights) <- row.names(imp)
     methods <- colnames(preds)
-    enMethods <- row.names(varImp(object$ens_model)$importance)
-    if(all(intersect(methods, enMethods) != methods) | !class(est) %in% c("numeric")){
+
+    for(m in setdiff(methods, names(weights))){
+      weights[m] <- 0
+    }
+  }
+
+  out <- est
+  if(se){
+    if(!is.numeric(est)){
       message("Standard errors not available.")
       out <- est
     } else{
-      wghts <- varImp(object$ens_model)$importance[methods, ]
-      names(wghts) <- row.names(varImp(object$ens_model)$importance)
-      se <- apply(preds, 1, wtd.sd, w = wghts)
-      if(missing(level)){
-        level <- 0.95
-      }
-      out <- data.frame(fit = est, lwr = est - (qnorm(level) * se),
-                        upr = est + (qnorm(level) * se))
+      weights <- weights[methods]
+      std_error <- apply(preds, 1, wtd.sd, w = weights)
+      std_error <- (qnorm(level) * std_error)
+      out <- data.frame(
+        fit = est,
+        lwr = est - std_error,
+        upr = est + std_error
+      )
     }
-  } else{
-    out <- est
   }
-  if(return_weights == TRUE) {
-      attr(out, "weights") <- wghts
-      return(out)
-    } else {
-    return(out)
+  if(return_weights) {
+    attr(out, "weights") <- weights
   }
+  return(out)
+}
+
+#' @title Check if an object is a caretStack object
+#' @param object an R object
+#' @description Check if an object is a caretStack object
+#' @export
+is.caretStack <- function(object){
+  is(object, "caretStack")
 }
 
 #' @title Summarize a caretStack object
@@ -146,12 +171,8 @@ summary.caretStack <- function(object, ...){
 #' print(meta_model)
 #' }
 print.caretStack <- function(x, ...){
-  n <- length(x$models)
-  cat(paste(
-    "A",
-    x$ens_model$method,
-    "ensemble of 2 base models:",
-    paste(sapply(x$models, function(x) x$method), collapse=", ")))
+  base.models <- paste(names(x$models), collapse=", ")
+  cat(sprintf("A %s ensemble of %s base models: %s", x$ens_model$method, length(x$models), base.models))
   cat("\n\nEnsemble results:\n")
   print(x$ens_model)
 }
@@ -179,11 +200,12 @@ plot.caretStack <- function(x, ...){
 }
 
 #' @title Comparison dotplot for a caretStack object
-#' @description This is a function to make a dotplot from a caretStack.  It uses dotplot from the caret package on all the models in the ensemble, plus the final ensemble model.  At the moment, this function only works if the ensembling model has the same number of resamples as the component models.
+#' @description This is a function to make a dotplot from a caretStack.  It uses dotplot from the caret package on all the models in the ensemble, excluding the final ensemble model.  At the moment, this function only works if the ensembling model has the same number of resamples as the component models.
 #' @param x An object of class caretStack
 #' @param data passed to dotplot
 #' @param ... passed to dotplot
 #' @importFrom lattice dotplot
+#' @importFrom caret resamples
 #' @examples
 #' \dontrun{
 #' set.seed(42)

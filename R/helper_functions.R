@@ -1,4 +1,53 @@
 #####################################################
+# Configuration Functions
+#####################################################
+#' @title Return the configured target binary class level
+#' @description For binary classification problems, ensemble
+#' stacks and certain performance measures require an awareness
+#' of which class in a two-factor outcome is the "target" class.
+#' By default, this class will be assumed to be the first level in
+#' an outcome factor but that setting can be overridden using
+#' \code{setBinaryTargetLevel(2L)}.
+#' @seealso setBinaryTargetLevel
+#' @return Currently configured binary target level (as integer equal to 1 or 2)
+#' @export
+getBinaryTargetLevel <- function() {
+  arg <- getOption("caret.ensemble.binary.target.level", default = 1L)
+  validateBinaryTargetLevel(arg)
+}
+
+#' @title Set the target binary class level
+#' @description For binary classification problems, ensemble
+#' stacks and certain performance measures require an awareness
+#' of which class in a two-factor outcome is the "target" class.
+#' By default, the first level in an outcome factor is used but
+#' this value can be overridden using \code{setBinaryTargetLevel(2L)}
+#' @param level an integer in \{1, 2\} to be used as target outcome level
+#' @seealso getBinaryTargetLevel
+#' @export
+setBinaryTargetLevel <- function(level){
+  level <- validateBinaryTargetLevel(level)
+  options(caret.ensemble.binary.target.level=level)
+}
+
+#' @title Validate arguments given as binary target level
+#' @description Helper function used to ensure that target
+#' binary class levels given by clients can be coerced to an integer
+#' and that the resulting integer is in \{1, 2\}.
+#' @param arg argument to potentially be used as new target level
+#' @return Binary target level (as integer equal to 1 or 2)
+validateBinaryTargetLevel <- function(arg){
+  val <- suppressWarnings(try(as.integer(arg), silent=T))
+  if (!is.integer(val) || !val %in% c(1L, 2L))
+    stop(paste0(
+      "Specified target binary class level is not valid.  ",
+      "Value should be either 1 or 2 but '", arg, "' was given ",
+      "(see caretEnsemble::setBinaryTargetLevel for more details)"))
+  val
+}
+
+
+#####################################################
 # Misc. Functions
 #####################################################
 #' @title Calculate a weighted standard deviation
@@ -12,7 +61,7 @@ wtd.sd <- function (x, w = NULL, na.rm = FALSE) {
     w <- w[i <- !is.na(x)]; x <- x[i]
     }
     n <- length(w)
-    xWbar <- weighted.mean(x,w,na.rm=na.rm)
+    xWbar <- weighted.mean(x, w, na.rm = na.rm)
     wbar <- mean(w)
     out <- n/((n-1)*sum(w)^2)*(sum((w*x-wbar*xWbar)^2)-2*xWbar*sum((w-wbar)*(w*x-wbar*xWbar))+xWbar^2*sum((w-wbar)^2))
     return(out)
@@ -34,8 +83,9 @@ check_caretList_classes <- function(list_of_models){
 }
 
 #' @title Checks that caretList models are all of the same type.
-#'
+#' @description Validate a caretList
 #' @param list_of_models a list of caret models to check
+#' @importFrom caret modelLookup
 check_caretList_model_types <- function(list_of_models){
   #Check that models have the same type
   types <- sapply(list_of_models, function(x) x$modelType)
@@ -59,7 +109,7 @@ check_caretList_model_types <- function(list_of_models){
   #Check that classification models saved probabilities
   #TODO: ALLOW NON PROB MODELS!
   if (type=="Classification"){
-    probModels <- sapply(list_of_models, function(x) modelLookup(x$method)[1,"probModel"])
+    probModels <- sapply(list_of_models, function(x) is.function(x$modelInfo$prob))
     if(!all(probModels)) stop("All models for classification must be able to generate class probabilities.")
     classProbs <- sapply(list_of_models, function(x) x$control$classProbs)
     if(!all(classProbs)){
@@ -100,7 +150,7 @@ check_bestpreds_indexes <- function(modelLibrary){
   names(rows) <- names(modelLibrary)
   check <- length(unique(rows))
   if(check != 1){
-    stop("Re-sampled predictions from each component model do not use the same rowIndexs from the origial dataset")
+    stop("Re-sampled predictions from each component model do not use the same rowIndexes from the origial dataset")
   }
   return(invisible(NULL))
 }
@@ -145,6 +195,36 @@ check_bestpreds_preds <- function(modelLibrary){
 #####################################################
 # Extraction functions
 #####################################################
+#' @title Extract the method name associated with a single train object
+#' @description Extracts the method name associated with a single train object.  Note
+#' that for standard models (i.e. those already prespecified by caret), the
+#' "method" attribute on the train object is used directly while for custom
+#' models the "method" attribute within the model$modelInfo attribute is
+#' used instead.
+#' @param x a single caret train object
+#' @return Name associated with model
+extractModelName <- function(x) {
+  if (is.list(x$method)){
+    validateCustomModel(x$method)$method
+  } else if (x$method == "custom"){
+    validateCustomModel(x$modelInfo)$method
+  } else x$method
+}
+
+#' @title Validate a custom caret model info list
+#' @description Currently, this only ensures that all model info lists
+#' were also assigned a "method" attribute for consistency with usage
+#' of non-custom models
+#' @param x a model info list (e.g. \code{getModelInfo("rf", regex=F)\[[1]]})
+#' @return validated model info list (i.e. x)
+validateCustomModel <- function(x) {
+  if (is.null(x$method))
+    stop(paste(
+      "Custom models must be defined with a \"method\" attribute containing the name",
+      "by which that model should be referenced.  Example: my.glm.model$method <- \"custom_glm\""))
+  x
+}
+
 #' @title Extracts the model types from a list of train model
 #' @description Extracts the model types from a list of train model
 #'
@@ -167,10 +247,13 @@ extractModelTypes <- function(list_of_models){
 #' @importFrom data.table data.table setorderv
 bestPreds <- function(x){
   stopifnot(is(x, "train"))
-  stopifnot(x$control$savePredictions %in% c('all', 'final'))
+  stopifnot({
+    x$control$savePredictions %in% c("all", "final") |
+      x$control$savePredictions == TRUE
+  })
   a <- data.table(x$bestTune, key=names(x$bestTune))
   b <- data.table(x$pred, key=names(x$bestTune))
-  b <- b[a,]
+  b <- b[a, ]
   sink <- gc(reset=TRUE)
   setorderv(b, c("Resample", "rowIndex"))
   return(b)
@@ -183,7 +266,7 @@ bestPreds <- function(x){
 extractBestPreds <- function(list_of_models){
   out <- lapply(list_of_models, bestPreds)
   if(is.null(names(out))){
-    names(out) <- make.names(sapply(list_of_models, function(x) x$method), unique=TRUE)
+    names(out) <- make.names(sapply(list_of_models, extractModelName), unique=TRUE)
   }
   sink <- gc(reset=TRUE)
   return(out)
@@ -234,20 +317,26 @@ makePredObsMatrix <- function(list_of_models){
   #For classification models that produce probs, use the probs as preds
   #Otherwise, just use class predictions
   if (type=="Classification"){
-    positive <- as.character(unique(modelLibrary$obs)[2]) #IMPROVE THIS!
+    # Determine the string name for the positive class
+    if (!is.factor(modelLibrary$obs) || length(levels(modelLibrary$obs)) != 2)
+      stop("Response vector must be a two-level factor for classification.")
+    positive <- levels(modelLibrary$obs)[getBinaryTargetLevel()]
+
+    # Use the string name for the positive class determined above to select
+    # predictions from base estimators as predictors for ensemble model
     pos <- as.numeric(modelLibrary[[positive]])
     good_pos_values <- which(is.finite(pos))
     set(modelLibrary, j="pred", value=as.numeric(modelLibrary[["pred"]]))
-    set(modelLibrary, i=good_pos_values, j="pred", value=modelLibrary[good_pos_values,positive,with=FALSE])
+    set(modelLibrary, i=good_pos_values, j="pred", value=modelLibrary[good_pos_values, positive, with=FALSE])
   }
 
   #Reshape wide for meta-modeling
   modelLibrary <- data.table::dcast.data.table(
     modelLibrary,
-    obs + rowIndex + Resample ~ modelname,
+    rowIndex + obs + Resample ~ modelname,
     value.var = "pred"
   )
 
   #Return
-  return(list(obs=modelLibrary$obs, preds=as.matrix(modelLibrary[,model_names,with=FALSE]), type=type))
+  return(list(obs=modelLibrary$obs, preds=as.matrix(modelLibrary[, model_names, with=FALSE]), type=type))
 }
